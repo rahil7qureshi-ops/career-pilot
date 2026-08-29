@@ -165,12 +165,12 @@ export default function Navbar() {
               </AnimatePresence>
             </div>
 
-            {/* Public Access Buttons */}
+            {/* Desktop Public Access Buttons */}
             {publicLinks.map(({ path, label, icon: Icon }) => (
               <Link
                 key={path}
                 to={path}
-                className={`nav-link text-xs px-2.5 py-1.5 flex items-center gap-1.5 shrink-0 ${isActive(path) ? 'nav-link-active' : 'nav-link-inactive'}`}
+                className={`nav-link text-xs px-2.5 py-1.5 flex items-center gap-1.5 shrink-0 ${isActive(path) ? 'text-blue-500 font-bold' : 'text-muted-foreground'}`}
               >
                 <Icon className="w-3.5 h-3.5" />
                 {label}
@@ -281,7 +281,7 @@ export default function Navbar() {
                           <LogOut className="w-3.5 h-3.5" />
                           Logout
                         </button>
-                      </motion.div>
+                      </                      motion.div>
                     )}
                   </AnimatePresence>
                 </div>
@@ -355,12 +355,13 @@ export default function Navbar() {
                 />
               </div>
 
+              {/* STYLED MOBILE PUBLIC LINKS */}
               {publicLinks.map(({ path, label, icon: Icon }) => (
                 <Link
                   key={path}
                   to={path}
                   onClick={() => setMobileMenuOpen(false)}
-                  className={`nav-link text-sm flex items-center gap-2 py-2 ${isActive(path) ? 'nav-link-active' : 'nav-link-inactive'}`}
+                  className={`text-sm flex items-center gap-3 px-3 py-2.5 rounded-xl font-medium transition-all bg-blue-500 text-white shadow-md shadow-blue-500/20`}
                 >
                   <Icon className="w-4 h-4" />
                   {label}
@@ -373,7 +374,11 @@ export default function Navbar() {
                     key={path}
                     to={path}
                     onClick={() => setMobileMenuOpen(false)}
-                    className={`nav-link text-sm flex items-center gap-2 py-2 ${isActive(path) ? 'nav-link-active' : 'nav-link-inactive'}`}
+                    className={`text-sm flex items-center gap-3 px-3 py-2.5 rounded-xl font-medium transition-all ${
+                      isActive(path) 
+                        ? 'bg-blue-500 text-white' 
+                        : 'text-foreground hover:bg-muted'
+                    }`}
                   >
                     <Icon className="w-4 h-4" />
                     {label}
