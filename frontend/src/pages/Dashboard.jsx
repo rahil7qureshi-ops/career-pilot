@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { motion } from 'framer-motion'
@@ -8,6 +8,7 @@ import {
   Search,
   Plus,
   ArrowRight,
+  ArrowUpRight,
   CheckCircle2,
   Send,
   Star,
@@ -21,438 +22,527 @@ import {
   GraduationCap,
   Bell,
   Mic,
-  Globe
+  Globe,
+  Github,
+  Flame,
+  Code2,
+  Palette,
+  Network,
+  BookMarked,
+  Linkedin,
+  BarChart3,
+  PenLine,
+  Rocket,
+  Shield,
+  CalendarDays,
+  ChevronRight,
+  LayoutGrid,
+  Video,
+  GitBranch,
+  Award,
+  Heart,
 } from 'lucide-react'
-import { resumeApi, jobTrackerApi, portfolioApi } from '../services/api'
-import Button from '../components/Button'
-import { 
-  SkeletonDashboardActions, 
-  SkeletonStatCards, 
-  SkeletonJobList,
-  SkeletonList 
+import { resumeApi, jobTrackerApi, portfolioApi, userProfileApi } from '../services/api'
+import {
+  SkeletonAction,
+  SkeletonStat,
+  SkeletonRow,
+  SkeletonBlock
 } from '../components/ui/Skeleton'
+import { getGithubUsername } from '../utils/github'
 
+/* ─── Feature Categories ─────────────────────────────────────────────── */
+const FEATURE_CATEGORIES = [
+  {
+    id: 'resume',
+    label: 'Resume & Documents',
+    icon: FileText,
+    features: [
+      { name: 'Resume Builder', desc: 'AI-powered ATS-optimized resumes', to: '/hub/resume', icon: FileText, accent: 'text-blue-500 bg-blue-500/10' },
+      { name: 'Resume Roast', desc: 'Brutally honest AI feedback', to: '/resume-roast/analyze', icon: Flame, accent: 'text-orange-500 bg-orange-500/10' },
+      { name: 'Cover Letter', desc: 'Tailored cover letters in seconds', to: '/cover-letter', icon: PenLine, accent: 'text-violet-500 bg-violet-500/10' },
+      { name: 'Text to Resume', desc: 'Paste text, get a formatted resume', to: '/text-to-resume', icon: Sparkles, accent: 'text-cyan-500 bg-cyan-500/10' },
+    ],
+  },
+  {
+    id: 'jobs',
+    label: 'Job Search & Tracking',
+    icon: Briefcase,
+    features: [
+      { name: 'Job Finder', desc: 'AI-matched job search', to: '/job-finder/search', icon: Search, accent: 'text-emerald-500 bg-emerald-500/10' },
+      { name: 'Job Tracker', desc: 'Kanban board for applications', to: '/job-tracker', icon: Target, accent: 'text-teal-500 bg-teal-500/10' },
+      { name: 'Job Alerts', desc: 'Smart notifications for new roles', to: '/job-alerts', icon: Bell, accent: 'text-amber-500 bg-amber-500/10' },
+      { name: 'Analytics', desc: 'Application success insights', to: '/dashboard/analytics', icon: BarChart3, accent: 'text-indigo-500 bg-indigo-500/10' },
+    ],
+  },
+  {
+    id: 'portfolio',
+    label: 'Portfolio & Online Presence',
+    icon: Globe,
+    features: [
+      { name: 'Portfolio Builder', desc: 'Deploy a stunning portfolio', to: '/hub/portfolio', icon: Palette, accent: 'text-purple-500 bg-purple-500/10' },
+      { name: 'GitHub Portfolio', desc: 'Turn repos into a portfolio', to: '/github-portfolio/build', icon: Github, accent: 'text-gray-500 bg-gray-500/10' },
+      { name: 'README Generator', desc: 'AI GitHub profile README', to: '/readme-generator', icon: BookMarked, accent: 'text-pink-500 bg-pink-500/10' },
+      { name: 'LinkedIn Optimizer', desc: 'Boost your LinkedIn profile', to: '/linkedin-optimizer', icon: Linkedin, accent: 'text-sky-500 bg-sky-500/10' },
+    ],
+  },
+  {
+    id: 'interview',
+    label: 'Interview Preparation',
+    icon: Mic,
+    features: [
+      { name: 'Mock Interview', desc: 'AI voice interview practice', to: '/mock-interview/practice', icon: Mic, accent: 'text-red-500 bg-red-500/10' },
+      { name: 'Interview History', desc: 'Review past sessions', to: '/interview-history', icon: Video, accent: 'text-rose-500 bg-rose-500/10' },
+      { name: 'Skill Gap Analyzer', desc: 'Find missing skills for roles', to: '/skill-gap', icon: TrendingUp, accent: 'text-lime-500 bg-lime-500/10' },
+    ],
+  },
+  {
+    id: 'devtools',
+    label: 'Developer Tools',
+    icon: Code2,
+    features: [
+      { name: 'Project Visualizer', desc: 'AI architecture maps for repos', to: '/project-visualizer', icon: Network, accent: 'text-fuchsia-500 bg-fuchsia-500/10' },
+      { name: 'GitHub Dashboard', desc: 'Repo analytics & insights', to: '/github', icon: GitBranch, accent: 'text-slate-500 bg-slate-500/10' },
+      { name: 'LinkedIn Dashboard', desc: 'Profile performance metrics', to: '/linkedin', icon: Linkedin, accent: 'text-blue-600 bg-blue-600/10' },
+    ],
+  },
+  {
+    id: 'growth',
+    label: 'Career Growth & Community',
+    icon: GraduationCap,
+    features: [
+      { name: 'Career Growth', desc: 'Readiness score & learning paths', to: '/hub/career', icon: GraduationCap, accent: 'text-emerald-600 bg-emerald-600/10' },
+      { name: 'Community', desc: 'Network with job seekers', to: '/hub/community', icon: Users, accent: 'text-cyan-600 bg-cyan-600/10' },
+      { name: 'Fellowship', desc: 'Collaborative challenges', to: '/fellowship', icon: Award, accent: 'text-yellow-600 bg-yellow-600/10' },
+    ],
+  },
+]
+
+/* ─── Quick Actions ──────────────────────────────────────────────────── */
+const QUICK_ACTIONS = [
+  { label: 'Build Resume', to: '/resume-builder/build', icon: FileText },
+  { label: 'Search Jobs', to: '/job-finder/search', icon: Search },
+  { label: 'Mock Interview', to: '/mock-interview/practice', icon: Mic },
+  { label: 'Build Portfolio', to: '/hub/portfolio', icon: Palette },
+  { label: 'Roast Resume', to: '/resume-roast/analyze', icon: Flame },
+  { label: 'Generate README', to: '/readme-generator', icon: BookMarked },
+]
+
+/* ─── Status Config ──────────────────────────────────────────────────── */
 const STATUS_CONFIG = {
-  saved: { label: 'Saved', color: 'bg-muted text-muted-foreground border border-border', icon: Star },
-  applied: { label: 'Applied', color: 'bg-primary/10 text-primary border border-primary/20', icon: Send },
-  interviewing: { label: 'Interviewing', color: 'bg-secondary/10 text-secondary border border-secondary/20', icon: MessageSquare },
-  offered: { label: 'Offered', color: 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20', icon: CheckCircle2 }
+  saved: { label: 'Saved', color: 'bg-muted text-muted-foreground', icon: Star },
+  applied: { label: 'Applied', color: 'bg-blue-500/10 text-blue-600 dark:text-blue-400', icon: Send },
+  interviewing: { label: 'Interviewing', color: 'bg-amber-500/10 text-amber-600 dark:text-amber-400', icon: MessageSquare },
+  offered: { label: 'Offered', color: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400', icon: CheckCircle2 },
 }
 
+/* ─── Skeleton ───────────────────────────────────────────────────────── */
+function DashboardSkeleton() {
+  return (
+    <div className="space-y-8">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+        {Array.from({ length: 6 }).map((_, i) => <SkeletonStat key={i} />)}
+      </div>
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+        {Array.from({ length: 6 }).map((_, i) => <SkeletonAction key={i} />)}
+      </div>
+      <div className="grid lg:grid-cols-2 gap-6">
+        {[0, 1].map((col) => (
+          <div key={col} className="space-y-3">
+            <SkeletonBlock className="h-6 w-40" />
+            <div className="rounded-2xl bg-card border border-border p-4 space-y-3">
+              {Array.from({ length: 4 }).map((_, i) => <SkeletonRow key={i} />)}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+/* ─── Main Dashboard ─────────────────────────────────────────────────── */
 export default function Dashboard() {
   const [resumes, setResumes] = useState([])
   const [trackedJobs, setTrackedJobs] = useState([])
   const [loading, setLoading] = useState(true)
   const [fetchError, setFetchError] = useState('')
-  const [jobStats, setJobStats] = useState({
-    total: 0,
-    saved: 0,
-    applied: 0,
-    interviewing: 0,
-    offered: 0
-  })
+  const [jobStats, setJobStats] = useState({ total: 0, saved: 0, applied: 0, interviewing: 0, offered: 0 })
   const [portfolioCount, setPortfolioCount] = useState(0)
+  const [candidateName, setCandidateName] = useState('')
+  const [githubOverview, setGithubOverview] = useState({ connected: false, loading: false, stats: null })
+  const [activeCategory, setActiveCategory] = useState('resume')
+  const fetchRequestId = useRef(0)
+  const isMounted = useRef(false)
 
   useEffect(() => {
+    isMounted.current = true
     fetchData()
+    return () => { isMounted.current = false; fetchRequestId.current += 1 }
   }, [])
 
   const fetchData = async () => {
+    const requestId = fetchRequestId.current + 1
+    fetchRequestId.current = requestId
+    const canUpdate = () => isMounted.current && fetchRequestId.current === requestId
+
     try {
-      const [resumeRes, jobsRes, portfolioRes] = await Promise.all([
+      const [resumeRes, jobsRes, portfolioRes, userProfileRes] = await Promise.all([
         resumeApi.getAll().catch(() => ({ resumes: [] })),
         jobTrackerApi.getAll().catch(() => ({ trackedJobs: [] })),
-        portfolioApi.getAll().catch(() => ({ portfolioItems: [] }))
+        portfolioApi.getAll().catch(() => ({ portfolioItems: [] })),
+        userProfileApi.getMyProfile().catch(() => null),
       ])
+      if (!canUpdate()) return
 
       const fetchedResumes = Array.isArray(resumeRes.data) ? resumeRes.data : (resumeRes.resumes || resumeRes.data?.resumes || [])
       setResumes(fetchedResumes)
       const jobs = jobsRes.trackedJobs || []
       setTrackedJobs(jobs)
 
-      const portfolios =
-        portfolioRes.portfolios ||
-        portfolioRes.data?.portfolios ||
-        portfolioRes.data ||
-        [];
+      const portfolios = portfolioRes.portfolios || portfolioRes.data?.portfolios || portfolioRes.data || []
+      setPortfolioCount(Array.isArray(portfolios) ? portfolios.length : 0)
 
-      setPortfolioCount(portfolios.length)
+      const githubUsername = getGithubUsername(
+        userProfileRes?.profile?.github || userProfileRes?.data?.github || userProfileRes?.github
+      )
+      const rawName = userProfileRes?.profile?.name || userProfileRes?.data?.name || userProfileRes?.name || ''
+      setCandidateName(rawName.trim())
 
-      const stats = {
+      if (githubUsername) {
+        setGithubOverview({ connected: true, loading: true, stats: null })
+        resumeApi.previewGitHub(githubUsername)
+          .then((githubRes) => {
+            if (!canUpdate()) return
+            const preview = githubRes.preview || githubRes.data || githubRes
+            setGithubOverview({ connected: true, loading: false, stats: buildGithubStats(preview) })
+          })
+          .catch(() => { if (canUpdate()) setGithubOverview({ connected: true, loading: false, stats: null }) })
+      } else {
+        setGithubOverview({ connected: false, loading: false, stats: null })
+      }
+
+      setJobStats({
         total: jobs.length,
         saved: jobs.filter(j => j.status === 'saved').length,
         applied: jobs.filter(j => j.status === 'applied').length,
         interviewing: jobs.filter(j => j.status === 'interviewing').length,
-        offered: jobs.filter(j => j.status === 'offered').length
-      }
-      setJobStats(stats)
+        offered: jobs.filter(j => j.status === 'offered').length,
+      })
     } catch (error) {
+      if (!canUpdate()) return
       console.error('Failed to fetch data:', error)
       setFetchError('Failed to load your dashboard. Please try again.')
       toast.error('Failed to load dashboard data')
     } finally {
-      setLoading(false)
+      if (canUpdate()) setLoading(false)
     }
   }
 
-  const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric'
-    })
-  }
-
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    visible: {
-      opacity: 1,
-      transition: { staggerChildren: 0.05 }
+  const buildGithubStats = (profile = {}) => {
+    const repositorySource = profile.topRepositories || profile.repositories || profile.repos
+    const repositories = Array.isArray(repositorySource) ? repositorySource : []
+    const languageSource = profile.topLanguages || profile.languages || repositories.map((r) => r.language).filter(Boolean)
+    const topLanguages = Array.isArray(languageSource) ? languageSource
+      : Object.entries(languageSource || {}).sort((a, b) => Number(b[1]) - Number(a[1])).map(([l]) => l)
+    const totalStars = profile.totalStars ?? profile.stars ?? repositories.reduce((s, r) => s + Number(r.stars || r.stargazers_count || 0), 0)
+    return {
+      totalRepos: profile.totalRepos ?? profile.public_repos ?? profile.publicRepos ?? repositories.length,
+      totalStars,
+      topLanguages: topLanguages.slice(0, 3),
+      currentStreak: profile.currentStreak ?? profile.streak?.currentStreak ?? profile.current_streak ?? null,
     }
   }
 
-  const itemVariants = {
-    hidden: { opacity: 0, y: 10 },
-    visible: { opacity: 1, y: 0, transition: { duration: 0.4 } }
-  }
+  const formatDate = (d) => new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+  const today = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
+
+  const container = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.04 } } }
+  const item = { hidden: { opacity: 0, y: 12 }, visible: { opacity: 1, y: 0, transition: { duration: 0.35 } } }
+
+  const activeFeatures = FEATURE_CATEGORIES.find(c => c.id === activeCategory)?.features || []
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-        <motion.div
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          className="mb-10 p-8 glass rounded-3xl glow border-border/50 relative overflow-hidden"
-        >
-          <div className="absolute top-0 right-0 -mr-20 -mt-20 w-64 h-64 bg-primary/10 rounded-full blur-3xl animate-pulse"></div>
-          <h1 className="text-4xl md:text-5xl font-black text-foreground mb-3 tracking-tight">
-            Welcome back <span className="gradient-text">Pilot</span>
-          </h1>
-          <p className="text-lg text-muted-foreground font-medium max-w-2xl">Your career dashboard is ready. Track applications, enhance resumes, and land your dream job with AI insights.</p>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+        {/* ─── Header ─────────────────────────────────────────────── */}
+        <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
+          <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-2">
+            <div>
+              <p className="text-sm font-medium text-muted-foreground mb-1 flex items-center gap-2">
+                <CalendarDays className="w-3.5 h-3.5" /> {today}
+              </p>
+              <h1 className="text-3xl font-bold text-foreground tracking-tight">
+                {candidateName ? `Welcome back, ${candidateName}` : 'Welcome back'}
+              </h1>
+            </div>
+            <Link
+              to="/settings"
+              className="inline-flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <Shield className="w-4 h-4" /> Settings
+            </Link>
+          </div>
         </motion.div>
 
         {loading ? (
-          <div className="space-y-10">
-            {/* Quick Actions Skeleton */}
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.4 }}
-            >
-              <SkeletonDashboardActions />
-            </motion.div>
-
-            {/* Stats Skeleton */}
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.4, delay: 0.1 }}
-            >
-              <SkeletonStatCards count={5} />
-            </motion.div>
-
-            {/* Recent Applications & Resumes Skeleton */}
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.4, delay: 0.2 }}
-              className="grid lg:grid-cols-2 gap-10"
-            >
-              <div>
-                <div className="mb-6 h-8 bg-muted rounded-lg w-1/3 animate-pulse" />
-                <SkeletonList count={3} />
-              </div>
-              <div>
-                <div className="mb-6 h-8 bg-muted rounded-lg w-1/3 animate-pulse" />
-                <SkeletonList count={3} />
-              </div>
-            </motion.div>
-          </div>
+          <DashboardSkeleton />
         ) : (
-          <motion.div variants={containerVariants} initial="hidden" animate="visible">
+          <motion.div variants={container} initial="hidden" animate="visible" className="space-y-8">
+
+            {/* ─── Error Banner ─────────────────────────────────────── */}
             {fetchError && (
-              <div className="mb-8 rounded-2xl border border-destructive/20 bg-destructive/5 px-6 py-4 text-sm text-destructive flex items-center justify-between backdrop-blur-md">
-                <span className="font-semibold">{fetchError}</span>
-                <button
-                  onClick={fetchData}
-                  className="px-4 py-1.5 bg-destructive text-foreground rounded-lg font-bold hover:opacity-90 transition-opacity"
-                >
+              <div className="rounded-xl border border-destructive/20 bg-destructive/5 px-5 py-3 text-sm text-destructive flex items-center justify-between">
+                <span className="font-medium">{fetchError}</span>
+                <button onClick={fetchData} className="px-3 py-1 bg-destructive text-destructive-foreground rounded-lg text-xs font-semibold hover:opacity-90 transition-opacity">
                   Retry
                 </button>
               </div>
             )}
 
-            {/* Modular Hubs */}
-            <motion.div variants={itemVariants} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-5 mb-10">
+            {/* ─── Stats Strip ──────────────────────────────────────── */}
+            <motion.div variants={item} className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
               {[
-                { to: '/hub/resume', icon: FileText, label: 'Resume Builder', desc: 'Create, parse, and optimize ATS resumes.', sub: `${resumes.length} resumes`, color: 'primary', badge: 'AI' },
-                { to: '/hub/jobs', icon: Briefcase, label: 'Job Finder', desc: 'Search jobs, set alerts, and track applications.', sub: `${jobStats.total} tracked`, color: 'primary' },
-                { to: '/hub/portfolio', icon: Globe, label: 'Portfolio Builder', desc: 'Sync repos and deploy portfolios instantly.', sub: `${portfolioCount} portfolios`, color: 'secondary' },
-                { to: '/hub/career', icon: GraduationCap, label: 'Career Growth', desc: 'AI mock interviews, email & profile tuning.', sub: '4 tools', color: 'emerald-500', badge: 'AI' },
-                { to: '/hub/community', icon: Users, label: 'Community Hub', desc: 'Group chat, public posts, and direct DMs.', sub: 'Connect', color: 'primary' },
-              ].map((hub, idx) => (
-                <motion.div key={idx} variants={itemVariants}>
-                  <Link to={hub.to} className="group block h-full">
-                    <div className="relative p-6 rounded-3xl bg-card border border-border overflow-hidden transition-all duration-300 hover:border-primary/40 hover:shadow-xl hover:shadow-primary/5 hover:-translate-y-1 h-full flex flex-col justify-between">
-                      {/* Hover glow effect */}
-                      <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
-                      
-                      {/* Badge */}
-                      {hub.badge && (
-                        <div className="absolute top-4 right-4 px-2 py-0.5 bg-primary/10 rounded-full text-[9px] text-primary font-black uppercase tracking-wider border border-primary/20">
-                          {hub.badge}
-                        </div>
-                      )}
-
-                      <div>
-                        {/* Icon */}
-                        <div className={`w-14 h-14 bg-${hub.color}/10 border border-${hub.color}/20 rounded-2xl flex items-center justify-center mb-5 group-hover:scale-110 group-hover:bg-${hub.color}/15 transition-all duration-300`}>
-                          <hub.icon className={`w-7 h-7 text-${hub.color}`} />
-                        </div>
-                        
-                        {/* Content */}
-                        <h3 className="text-lg font-black text-foreground mb-2 group-hover:text-primary transition-colors">{hub.label}</h3>
-                        <p className="text-muted-foreground text-xs font-semibold leading-relaxed mb-4">{hub.desc}</p>
-                      </div>
-
-                      {/* Footer Info */}
-                      <div className="flex items-center justify-between text-[11px] font-bold text-muted-foreground pt-4 border-t border-border/40 mt-auto">
-                        <span className="uppercase tracking-wider">{hub.sub}</span>
-                        <span className="text-primary opacity-0 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all flex items-center gap-0.5">
-                          Open <ArrowRight className="w-3 h-3" />
-                        </span>
-                      </div>
+                { icon: Briefcase, value: jobStats.total, label: 'Jobs Tracked', to: '/job-tracker' },
+                { icon: Send, value: jobStats.applied, label: 'Applied', to: '/job-tracker' },
+                { icon: MessageSquare, value: jobStats.interviewing, label: 'Interviews', to: '/job-tracker' },
+                { icon: CheckCircle2, value: jobStats.offered, label: 'Offers', to: '/job-tracker' },
+                { icon: FileText, value: resumes.length, label: 'Resumes', to: '/hub/resume' },
+                { icon: Globe, value: portfolioCount, label: 'Portfolios', to: '/hub/portfolio' },
+              ].map((stat, idx) => (
+                <Link key={idx} to={stat.to} className="group p-4 rounded-xl bg-card border border-border hover:border-primary/30 hover:shadow-sm transition-all">
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-lg bg-primary/5 flex items-center justify-center group-hover:bg-primary/10 transition-colors">
+                      <stat.icon className="w-4.5 h-4.5 text-primary" />
                     </div>
-                  </Link>
-                </motion.div>
+                    <div>
+                      <p className="text-xl font-bold text-foreground leading-none">{stat.value}</p>
+                      <p className="text-[11px] font-medium text-muted-foreground mt-0.5">{stat.label}</p>
+                    </div>
+                  </div>
+                </Link>
               ))}
             </motion.div>
 
-            {/* Stats Row */}
-            <motion.div variants={itemVariants} className="grid grid-cols-2 md:grid-cols-6 gap-5 mb-10">
-              {[
-                {
-                  icon: Star,
-                  value: jobStats.saved,
-                  label: "Saved",
-                  color: "text-muted-foreground",
-                  bg: "bg-muted",
-                },
-                {
-                  icon: Send,
-                  value: jobStats.applied,
-                  label: "Applied",
-                  color: "text-primary",
-                  bg: "bg-primary/10",
-                },
-                {
-                  icon: MessageSquare,
-                  value: jobStats.interviewing,
-                  label: "Interviewing",
-                  color: "text-secondary",
-                  bg: "bg-secondary/10",
-                },
-                {
-                  icon: CheckCircle2,
-                  value: jobStats.offered,
-                  label: "Offers",
-                  color: "text-emerald-500",
-                  bg: "bg-emerald-500/10",
-                },
-                {
-                  icon: FileText,
-                  value: resumes.length,
-                  label: "Resumes",
-                  color: "text-primary",
-                  bg: "bg-primary/10",
-                },
-                {
-                  icon: Globe,
-                  value: portfolioCount,
-                  label: "Portfolios",
-                  color: "text-purple-500",
-                  bg: "bg-purple-500/10",
-                  link: "/portfolio",
-                },
-              ].map((stat, idx) => {
-                const content = (
-                  <div className="p-6 rounded-2xl bg-card border border-border text-center hover:border-primary/30 transition-all shadow-sm group">
-                    <div className={`w-12 h-12 ${stat.bg} rounded-xl flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform`}>
-                      <stat.icon className={`w-6 h-6 ${stat.color}`} />
-                    </div>
-
-                    <p className="text-3xl font-black text-foreground">
-                      {stat.value}
-                    </p>
-
-                    <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mt-1">
-                      {stat.label}
-                    </p>
-                  </div>
-                );
-
-                return stat.link ? (
-                  <motion.div key={idx} variants={itemVariants}>
-                    <Link to={stat.link}>
-                      {content}
-                    </Link>
-                  </motion.div>
-                ) : (
-                  <motion.div key={idx} variants={itemVariants}>
-                    {content}
-                  </motion.div>
-                );
-              })}
+            {/* ─── Quick Actions ────────────────────────────────────── */}
+            <motion.div variants={item}>
+              <div className="flex flex-wrap gap-2">
+                {QUICK_ACTIONS.map((action) => (
+                  <Link
+                    key={action.label}
+                    to={action.to}
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-card border border-border text-sm font-medium text-foreground hover:border-primary/40 hover:bg-primary/5 transition-all"
+                  >
+                    <action.icon className="w-4 h-4 text-primary" />
+                    {action.label}
+                  </Link>
+                ))}
+              </div>
             </motion.div>
 
-            <div className="grid lg:grid-cols-2 gap-10">
+            {/* ─── Feature Explorer ─────────────────────────────────── */}
+            <motion.div variants={item} className="rounded-2xl bg-card border border-border overflow-hidden">
+              {/* Category Tabs */}
+              <div className="flex overflow-x-auto border-b border-border px-4 pt-3 gap-1 scrollbar-hide">
+                {FEATURE_CATEGORIES.map((cat) => (
+                  <button
+                    key={cat.id}
+                    onClick={() => setActiveCategory(cat.id)}
+                    className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-t-lg whitespace-nowrap transition-colors border-b-2 -mb-px ${
+                      activeCategory === cat.id
+                        ? 'border-primary text-primary bg-primary/5'
+                        : 'border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                    }`}
+                  >
+                    <cat.icon className="w-4 h-4" />
+                    <span className="hidden sm:inline">{cat.label}</span>
+                    <span className="sm:hidden">{cat.label.split(' ')[0]}</span>
+                  </button>
+                ))}
+              </div>
+
+              {/* Feature Cards */}
+              <div className="p-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                {activeFeatures.map((feature) => (
+                  <Link
+                    key={feature.name}
+                    to={feature.to}
+                    className="group flex items-start gap-3 p-4 rounded-xl border border-border hover:border-primary/30 hover:shadow-sm transition-all bg-background/50"
+                  >
+                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${feature.accent}`}>
+                      <feature.icon className="w-5 h-5" />
+                    </div>
+                    <div className="min-w-0">
+                      <h3 className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors flex items-center gap-1">
+                        {feature.name}
+                        <ArrowUpRight className="w-3.5 h-3.5 opacity-0 group-hover:opacity-100 transition-opacity" />
+                      </h3>
+                      <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{feature.desc}</p>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </motion.div>
+
+            {/* ─── Two Column: Recent Activity ──────────────────────── */}
+            <div className="grid lg:grid-cols-2 gap-6">
               {/* Recent Applications */}
-              <motion.div variants={itemVariants}>
-                <div className="flex justify-between items-center mb-6">
-                  <h2 className="text-2xl font-black text-foreground flex items-center gap-3">
-                    <Clock className="w-6 h-6 text-primary" />
+              <motion.div variants={item}>
+                <div className="flex items-center justify-between mb-3">
+                  <h2 className="text-base font-semibold text-foreground flex items-center gap-2">
+                    <Clock className="w-4 h-4 text-muted-foreground" />
                     Recent Applications
                   </h2>
-                  <Link to="/job-tracker" className="group text-primary hover:text-primary/80 text-sm font-bold flex items-center gap-1 transition-all">
-                    View all <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                  <Link to="/job-tracker" className="text-xs font-medium text-primary hover:text-primary/80 flex items-center gap-1 transition-colors">
+                    View all <ChevronRight className="w-3 h-3" />
                   </Link>
                 </div>
 
                 {trackedJobs.length === 0 ? (
-                  <div className="rounded-[2rem] glass border border-primary/20 text-center py-16 glow relative overflow-hidden">
-                    <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent"></div>
-                    <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center mx-auto mb-6 relative z-10 animate-bounce">
-                      <Briefcase className="w-8 h-8 text-primary" />
-                    </div>
-                    <h3 className="text-xl font-bold text-foreground mb-2 relative z-10">No applications yet</h3>
-                    <p className="text-muted-foreground text-sm mb-6 max-w-xs mx-auto font-medium relative z-10">Start searching for jobs to track your applications</p>
-                    <Link to="/jobs" className="relative z-10">
-                      <Button variant="primary" className="font-bold px-8 shadow-lg shadow-primary/25 hover:shadow-primary/40 transition-all-300 hover:-translate-y-0.5">Search Jobs</Button>
+                  <div className="rounded-xl border border-dashed border-border p-8 text-center">
+                    <Briefcase className="w-8 h-8 text-muted-foreground/40 mx-auto mb-3" />
+                    <p className="text-sm font-medium text-muted-foreground mb-1">No applications yet</p>
+                    <p className="text-xs text-muted-foreground/70 mb-4">Start searching to track your progress</p>
+                    <Link to="/job-finder/search" className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-primary text-primary-foreground rounded-lg text-xs font-semibold hover:bg-primary/90 transition-colors">
+                      <Search className="w-3.5 h-3.5" /> Search Jobs
                     </Link>
                   </div>
                 ) : (
-                  <div className="rounded-[2rem] bg-card border border-border overflow-hidden shadow-sm">
-                    <div className="divide-y divide-border">
-                      {/** * GSSoC Optimization: Defensive structural evaluation on the active data view slice.
-                       * Prevents layout container voids if the array slice metrics index is altered.
-                       */}
-                      {(() => {
-                        const displayedJobs = trackedJobs.slice(0, 5);
-
-                        if (displayedJobs.length > 0) {
-                          return displayedJobs.map((job, index) => {
-                            const statusConfig = STATUS_CONFIG[job.status] || STATUS_CONFIG.saved;
-                            const StatusIcon = statusConfig.icon;
-                            return (
-                              <div key={job.id || index} className="p-5 hover:bg-muted/50 transition-all group">
-                                <div className="flex justify-between items-center">
-                                  <div className="flex-1">
-                                    <h4 className="text-lg font-bold text-foreground group-hover:text-primary transition-colors">{job.title}</h4>
-                                    <p className="text-sm text-muted-foreground font-semibold">{job.company}</p>
-                                  </div>
-                                  <span className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-2 ${statusConfig.color}`}>
-                                    <StatusIcon className="w-3.5 h-3.5" />
-                                    {statusConfig.label}
-                                  </span>
-                                </div>
-                              </div>
-                            );
-                          });
-                        } else {
-                          return (
-                            /* Graceful fallback UI layout state when view density evaluation yields zero records */
-                            <div className="p-10 text-center text-sm font-medium text-muted-foreground bg-muted/10 rounded-2xl border border-dashed border-border/60 mx-5 my-4">
-                              No active application records available in this view index.
-                            </div>
-                          );
-                        }
-                      })()}
-                    </div>
+                  <div className="rounded-xl bg-card border border-border divide-y divide-border overflow-hidden">
+                    {trackedJobs.slice(0, 5).map((job, index) => {
+                      const cfg = STATUS_CONFIG[job.status] || STATUS_CONFIG.saved
+                      const StatusIcon = cfg.icon
+                      return (
+                        <div key={job.id || index} className="px-4 py-3 flex items-center justify-between hover:bg-muted/30 transition-colors">
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium text-foreground truncate">{job.title}</p>
+                            <p className="text-xs text-muted-foreground">{job.company}</p>
+                          </div>
+                          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-semibold shrink-0 ${cfg.color}`}>
+                            <StatusIcon className="w-3 h-3" /> {cfg.label}
+                          </span>
+                        </div>
+                      )
+                    })}
                   </div>
                 )}
               </motion.div>
 
               {/* My Resumes */}
-              <motion.div variants={itemVariants}>
-                <div className="flex justify-between items-center mb-6">
-                  <h2 className="text-2xl font-black text-foreground flex items-center gap-3">
-                    <FileText className="w-6 h-6 text-primary" />
+              <motion.div variants={item}>
+                <div className="flex items-center justify-between mb-3">
+                  <h2 className="text-base font-semibold text-foreground flex items-center gap-2">
+                    <FileText className="w-4 h-4 text-muted-foreground" />
                     My Resumes
                   </h2>
-                  <Link to="/upload" className="group text-primary hover:text-primary/80 text-sm font-bold flex items-center gap-1 transition-all">
-                    Upload new <Plus className="w-4 h-4 group-hover:rotate-90 transition-transform" />
+                  <Link to="/upload" className="text-xs font-medium text-primary hover:text-primary/80 flex items-center gap-1 transition-colors">
+                    Upload new <Plus className="w-3 h-3" />
                   </Link>
                 </div>
 
                 {resumes.length === 0 ? (
-                  <div className="rounded-[2rem] glass border border-primary/20 text-center py-16 glow relative overflow-hidden">
-                    <div className="absolute inset-0 bg-gradient-to-br from-secondary/5 to-transparent"></div>
-                    <div className="w-16 h-16 bg-secondary/10 rounded-2xl flex items-center justify-center mx-auto mb-6 relative z-10 animate-bounce">
-                      <FileText className="w-8 h-8 text-secondary" />
-                    </div>
-                    <h3 className="text-xl font-bold text-foreground mb-2 relative z-10">No resumes yet</h3>
-                    <p className="text-muted-foreground text-sm mb-6 max-w-xs mx-auto font-medium relative z-10">Upload your resume to get AI-powered enhancements</p>
-                    <Link to="/upload" className="relative z-10">
-                      <Button variant="primary" className="font-bold px-8 shadow-lg shadow-primary/25 hover:shadow-primary/40 transition-all-300 hover:-translate-y-0.5">Upload Resume</Button>
+                  <div className="rounded-xl border border-dashed border-border p-8 text-center">
+                    <FileText className="w-8 h-8 text-muted-foreground/40 mx-auto mb-3" />
+                    <p className="text-sm font-medium text-muted-foreground mb-1">No resumes yet</p>
+                    <p className="text-xs text-muted-foreground/70 mb-4">Upload or build one to get started</p>
+                    <Link to="/resume-builder/build" className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-primary text-primary-foreground rounded-lg text-xs font-semibold hover:bg-primary/90 transition-colors">
+                      <FileText className="w-3.5 h-3.5" /> Build Resume
                     </Link>
                   </div>
                 ) : (
-                  <div className="rounded-[2rem] bg-card border border-border overflow-hidden shadow-sm">
-                    <div className="divide-y divide-border">
-                      {resumes.slice(0, 5).map(resume => (
-                        <div key={resume.id} className="p-5 hover:bg-muted/50 transition-all group">
-                          <div className="flex justify-between items-center">
-                            <div className="flex-1">
-                              <div className="flex items-center gap-3">
-                                <h4 className="text-lg font-bold text-foreground group-hover:text-primary transition-colors">{resume.title}</h4>
-                                {resume.enhancedText && (
-                                  <span className="px-2 py-0.5 bg-primary/10 text-primary border border-primary/20 rounded text-[10px] font-black uppercase tracking-widest animate-pulse">Enhanced</span>
-                                )}
-                              </div>
-                              <p className="text-sm text-muted-foreground font-semibold">{resume.jobRole || 'General'} • {formatDate(resume.createdAt)}</p>
-                            </div>
-                            <div className="flex gap-2">
-                              <Link to={`/resume/${resume.id}`}>
-                                <Button variant="ghost" className="!py-2 !px-4 text-xs font-bold">View</Button>
-                              </Link>
-                              <Link to={`/enhance/${resume.id}`}>
-                                <Button variant="primary" className="!py-2 !px-4 text-xs font-bold">Enhance</Button>
-                              </Link>
-                            </div>
-                          </div>
+                  <div className="rounded-xl bg-card border border-border divide-y divide-border overflow-hidden">
+                    {resumes.slice(0, 5).map((resume) => (
+                      <div key={resume.id} className="px-4 py-3 flex items-center justify-between hover:bg-muted/30 transition-colors group">
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-foreground truncate group-hover:text-primary transition-colors">{resume.title}</p>
+                          <p className="text-xs text-muted-foreground">{resume.jobRole || 'General'} · {formatDate(resume.createdAt)}</p>
                         </div>
-                      ))}
-                    </div>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          {resume.enhancedText && (
+                            <span className="px-2 py-0.5 bg-primary/10 text-primary rounded text-[10px] font-bold">AI</span>
+                          )}
+                          <Link to={`/resume/${resume.id}`} className="px-2.5 py-1 rounded-md text-[11px] font-semibold text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
+                            View
+                          </Link>
+                          <Link to={`/enhance/${resume.id}`} className="px-2.5 py-1 rounded-md text-[11px] font-semibold text-primary bg-primary/10 hover:bg-primary/15 transition-colors">
+                            Enhance
+                          </Link>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 )}
               </motion.div>
             </div>
 
-            {/* Tips Section */}
-            <motion.div variants={itemVariants} className="mt-16">
-              <h2 className="text-2xl font-black text-foreground mb-8 flex items-center gap-3">
-                <Zap className="w-6 h-6 text-amber-500 animate-pulse" />
-                Pro Tips for Success
-              </h2>
-              <div className="grid md:grid-cols-3 gap-6">
-                {[
-                  { icon: Zap, color: 'amber-500', title: 'Optimize Your Resume', text: 'Use our AI to tailor your resume for each job application' },
-                  { icon: Target, color: 'emerald-500', title: 'Track Everything', text: 'Keep notes and update statuses to stay organized in your job hunt' },
-                  { icon: TrendingUp, color: 'primary', title: 'Follow Up', text: "Don't forget to follow up on applications after a week" }
-                ].map((tip, idx) => (
-                  <div key={idx} className="p-8 rounded-[2rem] bg-card border border-border hover:border-primary/30 hover:shadow-xl transition-all group">
-                    <div className={`w-14 h-14 bg-muted rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform`}>
-                      <tip.icon className={`w-7 h-7 text-foreground group-hover:text-${tip.color} transition-colors`} />
+            {/* ─── GitHub Overview ──────────────────────────────────── */}
+            <motion.div variants={item}>
+              {githubOverview.connected ? (
+                <div className="rounded-xl bg-card border border-border p-5">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-lg bg-muted flex items-center justify-center">
+                        <Github className="w-5 h-5 text-foreground" />
+                      </div>
+                      <div>
+                        <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                          GitHub
+                          {githubOverview.loading && <span className="text-[10px] text-muted-foreground font-normal animate-pulse">syncing…</span>}
+                        </h2>
+                        <p className="text-xs text-muted-foreground">Repository overview</p>
+                      </div>
                     </div>
-                    <h3 className="text-xl font-black text-foreground mb-2">{tip.title}</h3>
-                    <p className="text-muted-foreground font-medium leading-relaxed">{tip.text}</p>
+
+                    <div className="flex items-center gap-4">
+                      {[
+                        { label: 'Repos', value: githubOverview.stats?.totalRepos ?? '—' },
+                        { label: 'Stars', value: githubOverview.stats?.totalStars ?? '—' },
+                        { label: 'Languages', value: githubOverview.stats?.topLanguages?.join(', ') || '—' },
+                        { label: 'Streak', value: githubOverview.stats?.currentStreak != null ? `${githubOverview.stats.currentStreak}d` : '—' },
+                      ].map((s) => (
+                        <div key={s.label} className="text-center">
+                          <p className="text-sm font-bold text-foreground">{s.value}</p>
+                          <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wide">{s.label}</p>
+                        </div>
+                      ))}
+                    </div>
+
+                    <Link to="/github" className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-muted text-xs font-semibold text-foreground hover:bg-muted/80 transition-colors shrink-0">
+                      Details <ArrowRight className="w-3.5 h-3.5" />
+                    </Link>
                   </div>
-                ))}
-              </div>
+                </div>
+              ) : (
+                <div className="rounded-xl border border-dashed border-border p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <Github className="w-5 h-5 text-muted-foreground" />
+                    <p className="text-sm text-muted-foreground">Connect GitHub to see repository stats</p>
+                  </div>
+                  <Link to="/profile" className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-primary text-primary-foreground rounded-lg text-xs font-semibold hover:bg-primary/90 transition-colors">
+                    Connect <ArrowRight className="w-3.5 h-3.5" />
+                  </Link>
+                </div>
+              )}
             </motion.div>
+
+            {/* ─── Career Progress ──────────────────────────────────── */}
+            <motion.div variants={item} className="grid sm:grid-cols-3 gap-4">
+              {[
+                { icon: Zap, title: 'Optimize', desc: 'Use AI to tailor your resume for each application', to: '/hub/resume', color: 'text-amber-500' },
+                { icon: Target, title: 'Track', desc: 'Keep notes and update statuses to stay organized', to: '/job-tracker', color: 'text-emerald-500' },
+                { icon: TrendingUp, title: 'Follow Up', desc: 'Follow up on applications after one week', to: '/job-alerts', color: 'text-blue-500' },
+              ].map((tip, idx) => (
+                <Link key={idx} to={tip.to} className="group p-5 rounded-xl bg-card border border-border hover:border-primary/20 hover:shadow-sm transition-all">
+                  <tip.icon className={`w-5 h-5 ${tip.color} mb-3`} />
+                  <h3 className="text-sm font-semibold text-foreground mb-1">{tip.title}</h3>
+                  <p className="text-xs text-muted-foreground leading-relaxed">{tip.desc}</p>
+                </Link>
+              ))}
+            </motion.div>
+
           </motion.div>
         )}
       </div>
     </div>
   )
 }
-

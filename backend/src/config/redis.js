@@ -3,6 +3,25 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
+if (process.env.NODE_ENV === 'development') {
+    const url = process.env.REDIS_URL;
+    if (!url || url.includes('localhost') || url.includes('127.0.0.1')) {
+        console.log('🔄 Starting redis-memory-server to satisfy localhost REDIS_URL...');
+        (async () => {
+            try {
+                const { RedisMemoryServer } = await import('redis-memory-server');
+                const redisServer = new RedisMemoryServer();
+                const host = await redisServer.getHost();
+                const port = await redisServer.getPort();
+                process.env.REDIS_URL = `redis://${host}:${port}`;
+                console.log(`✅ redis-memory-server running at ${process.env.REDIS_URL}`);
+            } catch (e) {
+                console.warn('⚠️ Could not start redis-memory-server:', e.message);
+            }
+        })();
+    }
+}
+
 export class RedisManager {
   constructor() {
     this.connections = new Map();

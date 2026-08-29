@@ -1,0 +1,17 @@
+import mongoose from 'mongoose';
+
+const portfolioSchema = new mongoose.Schema(
+  {
+    userId: { type: String, required: true },
+    slug: { type: String, required: true },
+    sections: { type: mongoose.Schema.Types.Mixed, default: {} },
+    deployedUrl: { type: String },
+    projectName: { type: String },
+  },
+  { timestamps: true }
+);
+
+portfolioSchema.index({ userId: 1, slug: 1 }, { unique: true });
+portfolioSchema.index({ slug: 1 }, { background: true });
+
+export default mongoose.model('Portfolio', portfolioSchema);

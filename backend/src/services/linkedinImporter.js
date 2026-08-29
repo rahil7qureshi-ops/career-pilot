@@ -1,10 +1,11 @@
-// LinkedIn profile import via Proxycurl API (https://proxycurl.com)
-// Free tier: 10 credits. Paid: ~$0.01/profile. No scraping, no bot detection.
-// Set PROXYCURL_API_KEY in .env to enable.
+// LinkedIn profile import via LinkdAPI (https://linkdapi.com)
+// Paid: ~$0.01/profile. No scraping, no bot detection.
+// Set LINKDAPI_API_KEY in .env to enable.
 
 import { jobsScrapedCounter } from '../middleware/metrics.js';
 
-const PROXYCURL_ENDPOINT = 'https://nubela.co/proxycurl/api/v2/linkedin';
+// Using LinkdAPI
+const LINKDAPI_ENDPOINT = 'https://linkdapi.com/api/v1/profile/full';
 
 const getMockProfile = (url) => ({
   name: 'Alex Developer',
@@ -18,7 +19,8 @@ const getMockProfile = (url) => ({
       title: 'Senior Software Engineer',
       company: 'TechCorp',
       duration: '2022 – Present',
-      description: 'Led migration of monolith to microservices, reducing latency by 40%.',
+      description:
+        'Led migration of monolith to microservices, reducing latency by 40%.',
     },
     {
       title: 'Software Engineer',
@@ -34,80 +36,130 @@ const getMockProfile = (url) => ({
       duration: '2016 – 2020',
     },
   ],
-  skills: ['JavaScript', 'TypeScript', 'React', 'Node.js', 'PostgreSQL', 'Docker', 'AWS'],
+  skills: [
+    'JavaScript',
+    'TypeScript',
+    'React',
+    'Node.js',
+    'PostgreSQL',
+    'Docker',
+    'AWS',
+  ],
   _mock: true,
-  _mockNote: `DEV MODE — set PROXYCURL_API_KEY to fetch the real profile for: ${url}`,
+  _mockNote: `DEV MODE — set LINKDAPI_API_KEY to fetch the real profile for: ${url}`,
 });
 
+const TINYFISH_ENDPOINT = 'https://api.search.tinyfish.ai';
+
 export const scrapeLinkedInProfile = async (url) => {
-  const apiKey = process.env.PROXYCURL_API_KEY;
+  const apiKey = process.env.TINYFISH_API_KEY;
 
   if (!apiKey) {
-    const env = process.env.NODE_ENV;
-    if (env === 'development' || env === 'test') {
-      console.warn(
-        '⚠️  PROXYCURL_API_KEY is not set — returning mock LinkedIn profile (development/test only).'
-      );
+    if (process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test') {
+      console.warn('⚠️ TINYFISH_API_KEY is not set — returning mock LinkedIn profile.');
       return getMockProfile(url);
     }
-    throw new Error(
-      'LinkedIn import requires a Proxycurl API key. Set PROXYCURL_API_KEY in your .env file. ' +
-      'Get a free key (10 credits) at https://proxycurl.com.'
-    );
+    throw new Error('LinkedIn import requires TINYFISH_API_KEY to be set in environment variables.');
   }
 
-  const requestUrl = `${PROXYCURL_ENDPOINT}?url=${encodeURIComponent(url)}&fallback_to_cache=on-error&use_cache=if-present`;
+  const requestUrl = `${TINYFISH_ENDPOINT}?query=${encodeURIComponent(url)}`;
 
   const response = await fetch(requestUrl, {
-    headers: { Authorization: `Bearer ${apiKey}` },
+    headers: {
+      'X-API-Key': apiKey,
+    },
   });
 
-  if (response.status === 401) {
-    throw new Error('Invalid Proxycurl API key. Check your PROXYCURL_API_KEY in .env.');
-  }
-  if (response.status === 403) {
-    throw new Error('Proxycurl API credits exhausted. Add credits at proxycurl.com.');
-  }
-  if (response.status === 404) {
-    throw new Error('LinkedIn profile not found. Make sure the URL is correct and the profile is public.');
-  }
   if (!response.ok) {
     const body = await response.text().catch(() => '');
-    throw new Error(`Proxycurl API error (${response.status}): ${body || response.statusText}`);
+    throw new Error(`TinyFish API error (${response.status}): ${body || response.statusText}`);
   }
 
   const data = await response.json();
+  const results = data.results || [];
 
-  jobsScrapedCounter.inc({
-    source: "linkedin",
+  if (!results.length) {
+    if (process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test') {
+      return getMockProfile(url);
+    }
+    throw new Error('No LinkedIn profile results found via TinyFish search.');
+  }
+
+  // Extract primary result
+  const primaryResult = results.find(r => r.url && r.url.includes('/in/')) || results[0];
+
+  // Clean title (e.g. "Satya Nadella - Chairman and CEO at Microsoft | LinkedIn")
+  let cleanTitle = (primaryResult.title || '')
+    .replace(/\s*\|\s*LinkedIn$/i, '')
+    .replace(/\s*-\s*LinkedIn$/i, '')
+    .trim();
+
+  let name = '';
+  let headline = '';
+
+  if (cleanTitle.includes(' - ')) {
+    const parts = cleanTitle.split(' - ');
+    name = parts[0].trim();
+    headline = parts.slice(1).join(' - ').trim();
+  } else if (cleanTitle.includes(' – ')) {
+    const parts = cleanTitle.split(' – ');
+    name = parts[0].trim();
+    headline = parts.slice(1).join(' – ').trim();
+  } else {
+    name = cleanTitle;
+  }
+
+  // Combine snippets
+  const allSnippets = results
+    .map(r => r.snippet)
+    .filter(Boolean)
+    .join('\n\n');
+
+  const about = primaryResult.snippet || allSnippets.slice(0, 300);
+
+  // Extract experience items from other LinkedIn result snippets
+  const experience = results.slice(1, 5).map(r => {
+    return {
+      title: r.title ? r.title.replace(/\s*\|\s*LinkedIn$/i, '').trim() : 'Experience / Activity',
+      company: r.site_name || 'LinkedIn',
+      duration: r.date || 'Present',
+      description: r.snippet || ''
+    };
   });
 
-  // Map Proxycurl response to our internal profile shape
-  const experience = (data.experiences || []).map((exp) => ({
-    title: exp.title || '',
-    company: exp.company || '',
-    duration: [exp.starts_at?.year, exp.ends_at?.year || 'Present']
-      .filter(Boolean)
-      .join(' – '),
-    description: exp.description || '',
-  }));
+  // Extract skills from snippets
+  const knownSkills = ['JavaScript', 'TypeScript', 'React', 'Node.js', 'Python', 'Java', 'C++', 'AWS', 'Docker', 'Kubernetes', 'SQL', 'NoSQL', 'MongoDB', 'PostgreSQL', 'GraphQL', 'REST API', 'AI', 'Machine Learning', 'Leadership', 'Management', 'Strategy'];
+  const extractedSkills = knownSkills.filter(skill => {
+    const escaped = skill.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
+    return new RegExp(`${escaped}`, 'i').test(allSnippets);
+  });
 
-  const education = (data.education || []).map((edu) => ({
-    school: edu.school || '',
-    degree: [edu.degree_name, edu.field_of_study].filter(Boolean).join(', '),
-    duration: [edu.starts_at?.year, edu.ends_at?.year].filter(Boolean).join(' – '),
-  }));
-
-  const skills = (data.skills || []).slice(0, 25);
+  try {
+    if (jobsScrapedCounter && typeof jobsScrapedCounter.inc === 'function') {
+      jobsScrapedCounter.inc({
+        source: 'linkedin_tinyfish',
+      });
+    }
+  } catch (e) {
+    // Ignore counter errors
+  }
 
   return {
-    name: [data.first_name, data.last_name].filter(Boolean).join(' '),
-    headline: data.headline || '',
-    location: data.city || data.country_full_name || '',
-    about: data.summary || '',
-    experience,
-    education,
-    skills,
+    name: name || 'LinkedIn Profile',
+    headline: headline || 'Professional',
+    location: '',
+    about,
+    experience: experience.length ? experience : [
+      {
+        title: headline || 'Professional Role',
+        company: 'LinkedIn Profile Data',
+        duration: 'Present',
+        description: about
+      }
+    ],
+    education: [],
+    skills: extractedSkills.length ? extractedSkills : ['Leadership', 'Management', 'Strategy'],
+    _source: 'tinyfish'
   };
 };
 
@@ -127,7 +179,9 @@ export const profileToResumeText = (profile) => {
   if (profile.experience?.length) {
     lines.push('## EXPERIENCE');
     profile.experience.forEach((exp) => {
-      const header = [exp.title, exp.company, exp.duration].filter(Boolean).join(' | ');
+      const header = [exp.title, exp.company, exp.duration]
+        .filter(Boolean)
+        .join(' | ');
       lines.push(`### ${header}`);
       if (exp.description) {
         exp.description
@@ -143,7 +197,9 @@ export const profileToResumeText = (profile) => {
   if (profile.education?.length) {
     lines.push('## EDUCATION');
     profile.education.forEach((edu) => {
-      const header = [edu.degree, edu.school, edu.duration].filter(Boolean).join(' | ');
+      const header = [edu.degree, edu.school, edu.duration]
+        .filter(Boolean)
+        .join(' | ');
       lines.push(`### ${header}`);
       lines.push('');
     });

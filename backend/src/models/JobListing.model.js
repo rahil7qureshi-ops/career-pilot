@@ -4,8 +4,7 @@ const jobListingSchema = new mongoose.Schema({
     externalId: {
         type: String,
         required: true,
-        unique: true,
-        index: true
+        unique: true
     },
     title: {
         type: String,
